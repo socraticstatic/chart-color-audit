@@ -1,0 +1,65 @@
+{
+  "name": "chart-color-audit",
+  "version": "0.1.0",
+  "description": "CI-friendly accessibility audit for chart color palettes: WCAG non-text contrast, colorblindness (CVD) simulation with the published Machado 2009 matrices, and perceptual OKLab ΔE separation. One engine, four faces: typed API, CLI, CI gate, MCP server.",
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "color",
+    "palette",
+    "data-visualization",
+    "charts",
+    "colorblind",
+    "cvd",
+    "wcag",
+    "design-tokens",
+    "ci",
+    "mcp"
+  ],
+  "author": "Micah Boswell <micah@conscious-shell.com> (https://conscious-shell.com)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/socraticstatic/chart-color-audit.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "chart-color-audit": "./dist/cli.js"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "culori": "^4.0.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/culori": "^2.1.1",
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.8"
+  }
+}
