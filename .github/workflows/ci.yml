@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # Dogfood the README's own CI recipe against the test fixture config.
+      - name: Self-audit (the package's own recipe)
+        run: |
+          node dist/cli.js --colors "#2456A4,#B03A2E" --bg "#fff"
+          node dist/cli.js --config test/fixtures/ci-config.json

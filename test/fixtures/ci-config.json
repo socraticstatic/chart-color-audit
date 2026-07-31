@@ -1,0 +1,12 @@
+{
+  "tokens": "site.css",
+  "categorical": ["--chart-positive", "--chart-negative"],
+  "background": "--chart-bg",
+  "semantic": {
+    "muted": "--chart-muted",
+    "other": "--chart-other",
+    "target": "--chart-target",
+    "forecast": "--chart-forecast"
+  },
+  "mode": "redundant-encodings"
+}
