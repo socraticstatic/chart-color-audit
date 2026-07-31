@@ -22,6 +22,8 @@ export interface AuditConfig {
   background: string;
   /** Optional semantic roles to check against the palette. */
   semantic?: Record<string, string>;
+  /** Tokens rendered as UI text, audited at 4.5:1 (SC 1.4.3), not the 3:1 mark floor. */
+  text?: Record<string, string>;
   mode?: FloorsMode;
   floors?: Partial<Floors>;
 }
@@ -30,6 +32,7 @@ export interface ResolvedConfig {
   colors: string[];
   background: string;
   semanticRoles?: Record<string, string>;
+  textRoles?: Record<string, string>;
   mode?: FloorsMode;
   floors?: Partial<Floors>;
 }
@@ -99,6 +102,11 @@ export function resolveConfig(config: AuditConfig, baseDir: string): ResolvedCon
             role,
             resolve(ref, `semantic.${role}`),
           ])
+        )
+      : undefined,
+    textRoles: config.text
+      ? Object.fromEntries(
+          Object.entries(config.text).map(([role, ref]) => [role, resolve(ref, `text.${role}`)])
         )
       : undefined,
     mode: config.mode,

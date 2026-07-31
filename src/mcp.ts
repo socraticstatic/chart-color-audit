@@ -73,6 +73,7 @@ export async function startMcpServer(): Promise<void> {
         colors: resolved.colors,
         background: resolved.background,
         semanticRoles: resolved.semanticRoles,
+        textRoles: resolved.textRoles,
         mode: resolved.mode,
         floors: resolved.floors,
       });

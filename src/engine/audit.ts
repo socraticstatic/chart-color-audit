@@ -29,15 +29,17 @@ export interface Floors {
   minDeltaECvd: number;
   /** Min WCAG contrast ratio of every color vs. the background. */
   minContrast: number;
+  /** Min WCAG contrast for tokens rendered as UI text (SC 1.4.3). */
+  minTextContrast: number;
 }
 
 export const FLOOR_PRESETS: Record<FloorsMode, Floors> = {
   // JND ≈ 2 in OKLab×100: fail what an eye cannot tell apart.
-  perceptual: { minDeltaENormal: 2, minDeltaECvd: 2, minContrast: 3 },
+  perceptual: { minDeltaENormal: 2, minDeltaECvd: 2, minContrast: 3, minTextContrast: 4.5 },
   // Color paired 1:1 with dash/decal/shape — color only avoids collision.
-  "redundant-encodings": { minDeltaENormal: 1, minDeltaECvd: 0.1, minContrast: 3 },
+  "redundant-encodings": { minDeltaENormal: 1, minDeltaECvd: 0.1, minContrast: 3, minTextContrast: 4.5 },
   // No redundancy assumed: clearly distinct normally, distinguishable under CVD.
-  strict: { minDeltaENormal: 10, minDeltaECvd: 4, minContrast: 3 },
+  strict: { minDeltaENormal: 10, minDeltaECvd: 4, minContrast: 3, minTextContrast: 4.5 },
 };
 
 /** Human-word reading of a measured minimum pairwise ΔE. */
@@ -94,10 +96,25 @@ export interface AuditInput {
   background: string;
   /** Optional semantic roles (e.g. positive/negative/muted) to check against the palette. */
   semanticRoles?: Record<string, string>;
+  /**
+   * Tokens rendered as UI text (status labels, captions, table numbers).
+   * Marks need 3:1 (SC 1.4.11); small text needs 4.5:1 (SC 1.4.3). Reusing
+   * mark tokens as text is the single most common failure this tool's parent
+   * project shipped: a measured sweep found 111 instances of exactly that,
+   * 89 of them one green that cleared the mark floor at 3.65-3.88:1.
+   */
+  textRoles?: Record<string, string>;
   /** Floors preset. Default: "perceptual". */
   mode?: FloorsMode;
   /** Per-floor overrides on top of the preset. */
   floors?: Partial<Floors>;
+}
+
+export interface TextFinding {
+  role: string;
+  hex: string;
+  ratio: number;
+  pass: boolean;
 }
 
 export interface AuditResult {
@@ -108,6 +125,7 @@ export interface AuditResult {
   perVision: VisionFinding[];
   contrast: ContrastFinding[];
   semantic: SemanticFinding[];
+  text: TextFinding[];
   verdict: "pass" | "fail";
   /** Human-readable reasons for every failure. Empty when verdict is "pass". */
   failures: string[];
@@ -244,6 +262,19 @@ export function audit(input: AuditInput): AuditResult {
     }
   );
 
+  // Text tokens vs. background at the SC 1.4.3 floor.
+  const text: TextFinding[] = Object.entries(input.textRoles ?? {}).map(([role, value]) => {
+    const color = parseOrThrow(value, `text token "${role}"`);
+    const ratio = contrastRatio(color, background);
+    const pass = ratio >= floors.minTextContrast;
+    if (!pass) {
+      failures.push(
+        `text "${role}": ${color.hex} is ${ratio.toFixed(2)}:1 vs. background as UI text (needs ≥ ${floors.minTextContrast}:1, WCAG 2.2 SC 1.4.3 — the 3:1 mark floor does not apply to text).`
+      );
+    }
+    return { role, hex: color.hex, ratio, pass };
+  });
+
   return {
     colors: colors.map((c, i) => ({ hex: c.hex, input: input.colors[i] ?? "" })),
     background: { hex: background.hex, input: input.background },
@@ -252,6 +283,7 @@ export function audit(input: AuditInput): AuditResult {
     perVision,
     contrast,
     semantic,
+    text,
     verdict: failures.length === 0 ? "pass" : "fail",
     failures,
   };

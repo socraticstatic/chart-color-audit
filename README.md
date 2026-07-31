@@ -86,6 +86,7 @@ properties or W3C design-tokens JSON:
   "categorical": ["--chart-cat-1", "--chart-cat-2", "--chart-cat-3"],
   "background": "--chart-bg",
   "semantic": { "positive": "--chart-positive", "muted": "--chart-muted" },
+  "text": { "positive": "--chart-positive-text", "muted": "--chart-muted-text" },
   "mode": "perceptual"
 }
 ```
@@ -104,6 +105,13 @@ jobs:
 Exit 1 with named findings when a token edit breaks a floor. Semantic roles
 are also checked for collisions against the palette — the classic silent
 failure where a "positive" green KPI becomes a data series for deutan viewers.
+
+The `text` group is for tokens rendered as UI text — status labels, captions,
+table numbers. Marks need 3:1 (SC 1.4.11); small text needs 4.5:1 (SC 1.4.3).
+Reusing mark tokens as text is the most common failure the parent project
+shipped: one measured sweep found 111 instances, 89 of them a single green
+that cleared the mark floor at 3.65–3.88:1. Declaring those tokens under
+`text` makes that class of failure a CI break instead of a screenshot regret.
 
 ### MCP server
 

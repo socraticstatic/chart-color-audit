@@ -98,6 +98,13 @@ function printHuman(result: AuditResult) {
   for (const c of result.contrast.filter((c) => !c.pass)) {
     w(`  ✗ slot ${c.index + 1} ${c.hex} — ${c.ratio.toFixed(2)}:1`);
   }
+  if (result.text.length > 0) {
+    w("");
+    for (const t of result.text) {
+      const mark = t.pass ? "\u2713" : "\u2717";
+      w(`  ${mark} text ${t.role.padEnd(14)} ${t.hex}  ${t.ratio.toFixed(2)}:1 vs. bg (needs \u2265 4.5:1, SC 1.4.3)`);
+    }
+  }
   if (result.semantic.length > 0) {
     w("");
     for (const s of result.semantic) {
@@ -155,6 +162,7 @@ async function main() {
         colors: resolved.colors,
         background: resolved.background,
         semanticRoles: resolved.semanticRoles,
+        textRoles: resolved.textRoles,
         mode: (args.mode as FloorsMode | undefined) ?? resolved.mode,
         floors: resolved.floors,
       });

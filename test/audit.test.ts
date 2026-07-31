@@ -132,3 +132,56 @@ describe("engine parity checks", () => {
     expect(contrastRatio(muted65, white)).toBeCloseTo(2.55, 1);
   });
 });
+
+describe("audit — text tokens (SC 1.4.3)", () => {
+  it("fails a mark token reused as text, while it passes as a mark", () => {
+    // The exact failure class the parent project shipped 111 instances of:
+    // #25935F clears the 3:1 mark floor (3.88:1 on white) and fails the
+    // 4.5:1 text floor. One color, two verdicts, both correct.
+    const r = audit({
+      colors: ["#2456A4", "#B03A2E"],
+      background: "#fff",
+      textRoles: { positive: "#25935F" },
+    });
+    expect(r.text).toHaveLength(1);
+    expect(r.text[0].pass).toBe(false);
+    expect(r.text[0].ratio).toBeGreaterThan(3); // fine as a mark...
+    expect(r.text[0].ratio).toBeLessThan(4.5); // ...not as text
+    expect(r.verdict).toBe("fail");
+    expect(r.failures.some((f) => f.includes("SC 1.4.3"))).toBe(true);
+  });
+
+  it("passes a text-safe variant", () => {
+    // 152 60% 30% — the parent project's --chart-positive-text.
+    const r = audit({
+      colors: ["#2456A4", "#B03A2E"],
+      background: "#fff",
+      textRoles: { positive: "hsl(152 60% 30%)" },
+    });
+    expect(r.text[0].pass).toBe(true);
+    expect(r.verdict).toBe("pass");
+  });
+
+  it("honors a floors override for the text floor", () => {
+    const r = audit({
+      colors: ["#2456A4", "#B03A2E"],
+      background: "#fff",
+      textRoles: { positive: "#25935F" },
+      floors: { minTextContrast: 3 },
+    });
+    expect(r.text[0].pass).toBe(true);
+  });
+
+  it("resolves text tokens from a CSS variables file", () => {
+    const css = readFileSync(new URL("./fixtures/site.css", import.meta.url), "utf8");
+    const vars = parseCssVars(css, ":root");
+    const positiveText = vars["--chart-positive-text"];
+    expect(positiveText).toBeTruthy();
+    const r = audit({
+      colors: ["#2456A4", "#B03A2E"],
+      background: "#fff",
+      textRoles: { positive: positiveText! },
+    });
+    expect(r.text[0].pass).toBe(true);
+  });
+});

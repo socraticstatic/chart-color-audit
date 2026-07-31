@@ -72,6 +72,11 @@ All colors MUST be HSL.
 
     /* Chart system — status / semantic */
     --chart-positive: 152 60% 36%;
+    /* Text-safe variants (mirrors the parent project): the tokens above are
+       tuned for the 3:1 mark floor (SC 1.4.11); UI text needs 4.5:1 (SC 1.4.3). */
+    --chart-positive-text: 152 60% 30%;
+    --chart-negative-text: 0 72% 40%;
+    --chart-info-text: 210 90% 38%;
     --chart-negative: 0 72% 45%;
     --chart-warn: 38 92% 50%;
     --chart-info: 210 90% 50%;
