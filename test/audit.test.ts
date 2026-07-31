@@ -144,9 +144,9 @@ describe("audit — text tokens (SC 1.4.3)", () => {
       textRoles: { positive: "#25935F" },
     });
     expect(r.text).toHaveLength(1);
-    expect(r.text[0].pass).toBe(false);
-    expect(r.text[0].ratio).toBeGreaterThan(3); // fine as a mark...
-    expect(r.text[0].ratio).toBeLessThan(4.5); // ...not as text
+    expect(r.text[0]!.pass).toBe(false);
+    expect(r.text[0]!.ratio).toBeGreaterThan(3); // fine as a mark...
+    expect(r.text[0]!.ratio).toBeLessThan(4.5); // ...not as text
     expect(r.verdict).toBe("fail");
     expect(r.failures.some((f) => f.includes("SC 1.4.3"))).toBe(true);
   });
@@ -158,7 +158,7 @@ describe("audit — text tokens (SC 1.4.3)", () => {
       background: "#fff",
       textRoles: { positive: "hsl(152 60% 30%)" },
     });
-    expect(r.text[0].pass).toBe(true);
+    expect(r.text[0]!.pass).toBe(true);
     expect(r.verdict).toBe("pass");
   });
 
@@ -169,7 +169,7 @@ describe("audit — text tokens (SC 1.4.3)", () => {
       textRoles: { positive: "#25935F" },
       floors: { minTextContrast: 3 },
     });
-    expect(r.text[0].pass).toBe(true);
+    expect(r.text[0]!.pass).toBe(true);
   });
 
   it("resolves text tokens from a CSS variables file", () => {
@@ -182,6 +182,6 @@ describe("audit — text tokens (SC 1.4.3)", () => {
       background: "#fff",
       textRoles: { positive: positiveText! },
     });
-    expect(r.text[0].pass).toBe(true);
+    expect(r.text[0]!.pass).toBe(true);
   });
 });
