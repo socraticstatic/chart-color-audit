@@ -24,7 +24,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          registry-url: https://registry.npmjs.org
+          # NO registry-url here: setup-node would write a placeholder
+          # _authToken to .npmrc, which overrides OIDC trusted publishing.
+      # Trusted publishing (OIDC token exchange) requires npm >= 11.5.
+      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
