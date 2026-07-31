@@ -12,9 +12,16 @@ matrices, measures pairwise separation in OKLab, checks
 contrast against your background, and fails your build when a change quietly
 breaks any of it.
 
-## Quick start
+## Four ways in. Pick yours.
 
-Nothing to install:
+| you are | you want | go to |
+|---|---|---|
+| a designer with a palette in hand | a verdict right now, nothing installed | [1 · Try a palette](#1--try-a-palette-nothing-to-install) |
+| a team with tokens in a repo | the build to fail when a color change breaks accessibility | [2 · Gate your CI](#2--gate-your-ci) |
+| an engineer building tooling | the audit as a typed function | [3 · Call it from code](#3--call-it-from-code) |
+| working with Claude or another agent | the audit as an MCP tool | [4 · Wire it into an agent](#4--wire-it-into-an-agent) |
+
+## 1 · Try a palette (nothing to install)
 
 ```bash
 npx chart-color-audit --colors "#4E79A7,#F28E2B,#E15759" --bg "#fff"
@@ -77,9 +84,12 @@ npx chart-color-audit mcp
 | `--json` | full result as JSON: `verdict`, `failures[]`, `perVision[]`, `contrast[]`, `semantic[]`, `text[]` |
 | `--version`, `--help` | the usual |
 
-## CI: fail the build when a color change breaks accessibility
+## 2 · Gate your CI
 
-**1.** Put `chartaudit.config.json` next to your tokens:
+Two files, no dependencies added.
+
+**Step 1.** Put `chartaudit.config.json` in your repo root, pointed at the
+tokens you already have:
 
 ```jsonc
 {
@@ -117,7 +127,7 @@ npx chart-color-audit mcp
 }
 ```
 
-**2.** Add the workflow:
+**Step 2.** Add the workflow:
 
 ```yaml
 # .github/workflows/chart-colors.yml
@@ -158,7 +168,11 @@ Roughly 1 in 12 men has red-green color vision deficiency; for most of
 them, series 3 and series 5 on that chart are the same color. Nothing in
 code review catches this. Math does.
 
-## API
+## 3 · Call it from code
+
+```bash
+npm i chart-color-audit
+```
 
 ```ts
 import { audit } from "chart-color-audit";
@@ -177,7 +191,7 @@ result.perVision; // per simulation: minDeltaE, closestPair, band
 Fully typed. Two data dependencies ([culori](https://culorijs.org/) for
 color math, the MCP SDK for the server). No DOM, no network.
 
-## MCP server
+## 4 · Wire it into an agent (MCP)
 
 Let an agent audit colors mid-conversation:
 
