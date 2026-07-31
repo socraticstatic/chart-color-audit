@@ -143,6 +143,10 @@ matrix with confident, plausible, fabricated values — and review passed it.
 Only a pinned regression test would have caught it, so this package pins the
 matrices against the published paper in its test suite, permanently.
 
+**The full story: [docs/POSTMORTEM.md](docs/POSTMORTEM.md)** — nine weeks of
+a wrong matrix, the AI-co-authored commit that forged it, and why the math
+now checks the math.
+
 ## Consulting
 
 I audit dashboards and design systems for exactly these failures —
