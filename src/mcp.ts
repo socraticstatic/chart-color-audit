@@ -14,11 +14,12 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { audit } from "./engine/audit.js";
 import { loadConfig } from "./config.js";
+import pkg from "../package.json" with { type: "json" };
 
 export async function startMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "chart-color-audit",
-    version: "0.1.0",
+    version: pkg.version,
   });
 
   server.registerTool(

@@ -113,6 +113,10 @@ tokens you already have:
   // Optional. Status colors, checked at 3:1 vs the background AND for
   // collisions against the palette: the classic silent failure where a
   // "positive" green KPI reads as data series 3 for deutan viewers.
+  // Verdict semantics: "low-contrast" and "collision" FAIL the audit;
+  // "cvd-risk" (collides with a slot only under CVD simulation) is
+  // REPORTED but does not fail — semantic roles usually carry redundant
+  // cues (position, icon, label). Treat cvd-risk as a review prompt.
   "semantic": { "positive": "--chart-positive", "muted": "--chart-muted" },
 
   // Optional. Tokens rendered as UI text (status labels, captions, table

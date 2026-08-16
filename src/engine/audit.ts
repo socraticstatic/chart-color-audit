@@ -244,6 +244,10 @@ export function audit(input: AuditInput): AuditResult {
         status = "cvd-risk";
         reason = `Under CVD simulation, collides with slot ${nearestCvdSlot + 1} (ΔE ${nearestCvdDeltaE.toFixed(2)} < ${floors.minDeltaECvd}).`;
       }
+      // cvd-risk is deliberately reported without failing the verdict:
+      // semantic roles usually carry redundant cues (position, icon, label),
+      // so a CVD-only collision is a review prompt, not a CI failure. The
+      // README documents this contract — change both together or neither.
       if (status === "low-contrast" || status === "collision") {
         failures.push(`semantic "${role}": ${reason}`);
       }

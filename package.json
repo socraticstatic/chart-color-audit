@@ -1,6 +1,6 @@
 {
   "name": "chart-color-audit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "CI-friendly accessibility audit for chart color palettes: WCAG non-text contrast, colorblindness (CVD) simulation with the published Machado 2009 matrices, and perceptual OKLab ΔE separation. One engine, four faces: typed API, CLI, CI gate, MCP server.",
   "keywords": [
     "accessibility",
@@ -51,7 +51,7 @@
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "culori": "^4.0.1",
     "zod": "^3.24.0"
   },
@@ -60,6 +60,9 @@
     "@types/node": "^22.10.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "esbuild": ">=0.28.1"
   }
 }
