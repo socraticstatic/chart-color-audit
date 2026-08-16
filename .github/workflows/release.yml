@@ -33,3 +33,36 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm publish --provenance --access public
+
+  # Publishes server.json to the official MCP Registry
+  # (registry.modelcontextprotocol.io) after the npm publish succeeds.
+  #
+  # Auth: GitHub Actions OIDC — `mcp-publisher login github-oidc` exchanges
+  # the workflow's OIDC token for registry credentials scoped to the
+  # io.github.socraticstatic namespace. No stored secret.
+  #
+  # The registry validates npm ownership by fetching the published package
+  # from registry.npmjs.org and checking its `mcpName` field matches
+  # server.json's `name` — which is why this job needs the npm job first.
+  mcp-registry:
+    name: Publish to MCP Registry
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC token exchange with the MCP registry
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Verify server.json is in sync with package.json
+        run: node scripts/check-server-json.mjs
+      - name: Install mcp-publisher
+        # Pinned release; update deliberately, not via `latest`.
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Login to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish

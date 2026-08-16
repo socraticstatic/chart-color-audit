@@ -1,6 +1,7 @@
 {
   "name": "chart-color-audit",
-  "version": "0.2.3",
+  "version": "0.2.4",
+  "mcpName": "io.github.socraticstatic/chart-color-audit",
   "description": "CI-friendly accessibility audit for chart color palettes: WCAG non-text contrast, colorblindness (CVD) simulation with the published Machado 2009 matrices, and perceptual OKLab ΔE separation. One engine, four faces: typed API, CLI, CI gate, MCP server.",
   "keywords": [
     "accessibility",
@@ -48,7 +49,8 @@
     "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+    "check:sync": "node scripts/check-server-json.mjs",
+    "prepublishOnly": "npm run check:sync && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
