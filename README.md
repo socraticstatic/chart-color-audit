@@ -203,9 +203,13 @@ Let an agent audit colors mid-conversation:
 claude mcp add chart-color-audit -- npx chart-color-audit mcp
 ```
 
-Two tools: `audit_palette` (paste colors) and `audit_tokens` (point at a
-config). Ask "is this palette colorblind-safe on white?" and the answer
-comes back with measurements instead of vibes.
+Two read-only tools: `audit_palette` (paste colors) and `audit_tokens`
+(point at a config). Ask "is this palette colorblind-safe on white?" and the
+answer comes back with measurements instead of vibes.
+
+Listed in the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=chart-color-audit)
+as `io.github.socraticstatic/chart-color-audit` and on
+[Glama](https://glama.ai/mcp/servers/socraticstatic/chart-color-audit).
 
 ## Floors
 

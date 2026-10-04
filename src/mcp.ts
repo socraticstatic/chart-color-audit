@@ -16,11 +16,26 @@ import { audit } from "./engine/audit.js";
 import { loadConfig } from "./config.js";
 import pkg from "../package.json" with { type: "json" };
 
-export async function startMcpServer(): Promise<void> {
-  const server = new McpServer({
-    name: "chart-color-audit",
-    version: pkg.version,
-  });
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+
+/** The server without a transport, so tests can connect in-process. */
+export function buildMcpServer(): McpServer {
+  const server = new McpServer(
+    {
+      name: "chart-color-audit",
+      version: pkg.version,
+    },
+    {
+      instructions:
+        "chart-color-audit answers one question with math: can everyone still tell the data series apart? " +
+        "Use audit_palette when the user has chart colors in hand (any CSS syntax) and a background; it returns " +
+        "pairwise OKLab ΔE separation under normal vision, deuteranopia, protanopia, tritanopia and grayscale " +
+        "(Machado 2009 matrices), WCAG 2.2 non-text contrast against the background, and a pass/fail verdict with reasons. " +
+        "Use audit_tokens when the palette lives in a CSS or design-tokens file named by a chartaudit.config.json on disk. " +
+        "Report the numbers, not vibes: ΔE below 2 is indistinguishable for that viewer, contrast below 3:1 fails SC 1.4.11. " +
+        "This tool audits; it does not generate palettes.",
+    }
+  );
 
   server.registerTool(
     "audit_palette",
@@ -47,6 +62,7 @@ export async function startMcpServer(): Promise<void> {
               "strict demands clear separation."
           ),
       },
+      annotations: READ_ONLY,
     },
     ({ colors, background, mode }) => {
       const result = audit({ colors, background, mode });
@@ -67,6 +83,7 @@ export async function startMcpServer(): Promise<void> {
           .string()
           .describe("Absolute or cwd-relative path to chartaudit.config.json."),
       },
+      annotations: READ_ONLY,
     },
     ({ config_path }) => {
       const resolved = loadConfig(config_path);
@@ -82,5 +99,9 @@ export async function startMcpServer(): Promise<void> {
     }
   );
 
-  await server.connect(new StdioServerTransport());
+  return server;
+}
+
+export async function startMcpServer(): Promise<void> {
+  await buildMcpServer().connect(new StdioServerTransport());
 }
