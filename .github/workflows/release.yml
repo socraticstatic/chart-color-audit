@@ -58,6 +58,24 @@ jobs:
           node-version: 22
       - name: Verify server.json is in sync with package.json
         run: node scripts/check-server-json.mjs
+      # npm accepts the publish and then says "may take a few minutes to become
+      # available". The registry validates by fetching that exact version from
+      # registry.npmjs.org, so publishing ten seconds after npm is a 404
+      # (v0.2.5, 2026-10-04). Wait until npm actually serves it.
+      - name: Wait for npm to serve this version
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          for attempt in $(seq 1 40); do
+            if curl -fsS "https://registry.npmjs.org/chart-color-audit/$VERSION" >/dev/null 2>&1; then
+              echo "npm is serving chart-color-audit@$VERSION"
+              exit 0
+            fi
+            echo "attempt $attempt: npm does not serve $VERSION yet, waiting 15s"
+            sleep 15
+          done
+          echo "::error::npm never served chart-color-audit@$VERSION within 10 minutes"
+          exit 1
+
       - name: Install mcp-publisher
         # Pinned release; update deliberately, not via `latest`.
         run: |
