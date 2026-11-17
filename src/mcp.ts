@@ -13,7 +13,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { audit } from "./engine/audit.js";
-import { loadConfig } from "./config.js";
+import { auditConfigFile } from "./run.js";
 import pkg from "../package.json" with { type: "json" };
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -77,7 +77,8 @@ export function buildMcpServer(): McpServer {
       description:
         "Run the same audit against a chartaudit.config.json on disk — the config " +
         "names a CSS or design-tokens file plus which tokens are the categorical " +
-        "palette, background, and semantic roles.",
+        "palette, background, and semantic roles. A config that declares themes " +
+        "(light and dark, say) returns a verdict over all of them plus each theme's result.",
       inputSchema: {
         config_path: z
           .string()
@@ -86,15 +87,7 @@ export function buildMcpServer(): McpServer {
       annotations: READ_ONLY,
     },
     ({ config_path }) => {
-      const resolved = loadConfig(config_path);
-      const result = audit({
-        colors: resolved.colors,
-        background: resolved.background,
-        semanticRoles: resolved.semanticRoles,
-        textRoles: resolved.textRoles,
-        mode: resolved.mode,
-        floors: resolved.floors,
-      });
+      const result = auditConfigFile(config_path);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
   );

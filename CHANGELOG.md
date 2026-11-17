@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Themes.** `"themes": { "light": {}, "dark": { "selector": ".dark" } }`
+  audits each theme on its own and fails the run if any fails. A theme may
+  override any top-level key. The CLI prints one report per theme, `--json`
+  prints `{ verdict, themes }`, the MCP `audit_tokens` tool returns the same,
+  and the GitHub Action writes one summary section per theme. `loadThemes`,
+  `auditConfigFile` and `isThemed` are exported.
+- **Contrast between series.** `pairContrast` reports the lowest WCAG
+  contrast between any two series. `floors.minPairContrast` (default `0`,
+  off, in every mode) fails every pair below it, for charts whose series
+  touch. No default floor changed.
+
+### Changed
+
+- **Installing the package pulls 2 packages and 2.6 MB, down from 93 and
+  28 MB.** The MCP server's dependencies are bundled into `dist/mcp.js`;
+  their licenses ship in `dist/THIRD-PARTY-LICENSES.txt`. culori is the only
+  runtime dependency. `Floors` has a new `minPairContrast` field.
+- CI runs on Linux, Windows and macOS with Node 20, 22 and 24, runs the built
+  package on Node 18, and speaks MCP to the built server over stdio.
+
 ## 0.3.0
 
 Each of these made the audit give a wrong answer, or fail, on ordinary input.

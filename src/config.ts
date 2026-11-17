@@ -149,8 +149,57 @@ export function resolveConfig(config: AuditConfig, baseDir: string): ResolvedCon
   };
 }
 
+/** One audit to run: the whole config, or one of its themes. */
+export interface ThemeConfig {
+  /** Theme name, or null for a config with no "themes". */
+  name: string | null;
+  config: ResolvedConfig;
+}
+
+const MERGED_MAPS = ["semantic", "text", "floors"] as const;
+
+/**
+ * Load a config that may declare "themes": an object of theme name to
+ * overrides of any top-level key. Each theme is the top-level config with its
+ * overrides applied ("semantic", "text" and "floors" merge key by key; every
+ * other key is replaced), then validated and resolved on its own. A config
+ * with no "themes" yields a single entry named null.
+ */
+export function loadThemes(configPath: string): ThemeConfig[] {
+  const raw: unknown = JSON.parse(readFileSync(configPath, "utf8"));
+  const baseDir = dirname(configPath);
+  if (!isRecord(raw) || raw.themes === undefined) {
+    return [{ name: null, config: resolveConfig(validateConfig(raw, configPath), baseDir) }];
+  }
+  const { themes, ...base } = raw;
+  if (!isRecord(themes) || Object.keys(themes).length === 0) {
+    throw new Error(`${configPath}: "themes" must be a non-empty object of theme name to overrides.`);
+  }
+  return Object.entries(themes).map(([name, override]) => {
+    const where = `${configPath}, theme "${name}"`;
+    if (!isRecord(override)) throw new Error(`${where}: must be an object of overrides.`);
+    if ("themes" in override) throw new Error(`${where}: a theme cannot declare "themes".`);
+    const merged: Record<string, unknown> = { ...base, ...override };
+    for (const key of MERGED_MAPS) {
+      const b = base[key];
+      const o = override[key];
+      if (isRecord(b) && isRecord(o)) merged[key] = { ...b, ...o };
+    }
+    const config = validateConfig(merged, where);
+    try {
+      return { name, config: resolveConfig(config, baseDir) };
+    } catch (e) {
+      throw new Error(`theme "${name}": ${e instanceof Error ? e.message : String(e)}`);
+    }
+  });
+}
+
+/** Load a config with no themes. For one that has them, use `loadThemes`. */
 export function loadConfig(configPath: string): ResolvedConfig {
   const raw: unknown = JSON.parse(readFileSync(configPath, "utf8"));
+  if (isRecord(raw) && raw.themes !== undefined) {
+    throw new Error(`${configPath}: this config declares "themes". Load it with loadThemes.`);
+  }
   const config = validateConfig(raw, configPath);
   return resolveConfig(config, dirname(configPath));
 }

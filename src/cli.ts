@@ -12,7 +12,7 @@
  */
 import { existsSync } from "node:fs";
 import { audit, type AuditResult, type FloorsMode } from "./engine/audit.js";
-import { loadConfig } from "./config.js";
+import { auditConfigFile, isThemed, type ThemedAuditResult } from "./run.js";
 import { splitColors } from "./split.js";
 
 const HELP = `chart-color-audit — accessibility audit for chart color palettes
@@ -114,6 +114,12 @@ function printHuman(result: AuditResult) {
   for (const c of result.contrast.filter((c) => !c.pass)) {
     w(`  ✗ slot ${c.index + 1} ${c.hex} — ${c.ratio.toFixed(2)}:1`);
   }
+  if (result.pairContrast.lowestPair) {
+    const [a, b] = result.pairContrast.lowestPair;
+    const need = result.pairContrast.floor > 0 ? `, needs ≥ ${result.pairContrast.floor}:1` : "";
+    const mark = result.pairContrast.pass ? "" : "✗ ";
+    w(`  ${mark}contrast between series: lowest ${result.pairContrast.min.toFixed(2)}:1 (slots ${a + 1} ↔ ${b + 1}${need})`);
+  }
   if (result.text.length > 0) {
     w("");
     for (const t of result.text) {
@@ -155,7 +161,7 @@ async function main() {
     return;
   }
 
-  let result: AuditResult;
+  let result: AuditResult | ThemedAuditResult;
   try {
     if (args.colors) {
       if (!args.bg) fail("--colors requires --bg <background color>.");
@@ -173,15 +179,7 @@ async function main() {
             `  chart-color-audit --colors "#4E79A7,#F28E2B,#E15759" --bg "#fff"`
         );
       }
-      const resolved = loadConfig(path);
-      result = audit({
-        colors: resolved.colors,
-        background: resolved.background,
-        semanticRoles: resolved.semanticRoles,
-        textRoles: resolved.textRoles,
-        mode: (args.mode as FloorsMode | undefined) ?? resolved.mode,
-        floors: resolved.floors,
-      });
+      result = auditConfigFile(path, args.mode as FloorsMode | undefined);
     }
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
@@ -189,6 +187,18 @@ async function main() {
 
   if (args.json) {
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+  } else if (isThemed(result)) {
+    const names = Object.keys(result.themes);
+    for (const name of names) {
+      process.stdout.write(`\n── theme: ${name} ──\n`);
+      printHuman(result.themes[name]!);
+    }
+    const failed = names.filter((n) => result.themes[n]!.verdict === "fail");
+    process.stdout.write(
+      failed.length === 0
+        ? `  PASS — all ${names.length} themes clear.\n\n`
+        : `  FAIL — ${failed.length} of ${names.length} themes failed: ${failed.join(", ")}.\n\n`
+    );
   } else {
     printHuman(result);
   }

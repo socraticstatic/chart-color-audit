@@ -32,6 +32,7 @@ jobs:
         run: |
           node dist/cli.js --colors "#2456A4,#B03A2E" --bg "#fff"
           node dist/cli.js --config test/fixtures/ci-config.json
+          node dist/cli.js --config test/fixtures/themes-config.json
       - name: CLI contract (exit codes on real input)
         run: |
           set -x
@@ -100,6 +101,12 @@ jobs:
           background: "#fff"
           fail-on-findings: "false"
           cli: node dist/cli.js
+      - name: Themed config passes, one summary section per theme
+        id: themed
+        uses: ./
+        with:
+          config: test/fixtures/themes-config.json
+          cli: node dist/cli.js
       - name: Check outcomes and outputs
         env:
           PASS_VERDICT: ${{ steps.pass.outputs.verdict }}
@@ -107,6 +114,7 @@ jobs:
           FAIL_VERDICT: ${{ steps.fail.outputs.verdict }}
           REPORT_VERDICT: ${{ steps.report.outputs.verdict }}
           REPORT_FINDINGS: ${{ steps.report.outputs.findings }}
+          THEMED_VERDICT: ${{ steps.themed.outputs.verdict }}
         run: |
           set -x
           test "$PASS_VERDICT" = "pass"
@@ -114,3 +122,4 @@ jobs:
           test "$FAIL_VERDICT" = "fail"
           test "$REPORT_VERDICT" = "fail"
           test "$REPORT_FINDINGS" -gt 0
+          test "$THEMED_VERDICT" = "pass"

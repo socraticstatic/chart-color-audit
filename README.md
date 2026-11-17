@@ -149,6 +149,44 @@ tokens you already have:
 }
 ```
 
+### Light and dark in one run
+
+A palette that passes on white often fails on a dark background. Declare
+`themes` and each one is audited on its own; the run fails if any fails.
+
+```jsonc
+{
+  "tokens": "src/index.css",
+  "categorical": ["--chart-cat-1", "--chart-cat-2"],
+  "background": "--chart-bg",
+  "themes": {
+    "light": {},
+    "dark": { "selector": ".dark" }
+  }
+}
+```
+
+A theme may override any top-level key. `semantic`, `text` and `floors`
+merge key by key; every other key is replaced. A selector other than
+`:root` is read on top of `:root`, so a `.dark` block only needs the
+variables it changes. With `--json` a themed run prints
+`{ "verdict", "themes": { "<name>": <result> } }`.
+
+### Series that touch
+
+By default each series is checked against the background, not against its
+neighbors. For pie slices, or stacked bars and areas with no gap or stroke
+between them, the shared edge is what a reader has to see. Set a floor and
+every pair of series below it is a finding:
+
+```jsonc
+"floors": { "minPairContrast": 3 }
+```
+
+It is off (`0`) in every mode, because 3:1 between every pair is out of
+reach for a palette of more than a few colors, and a gap or a stroke
+between marks removes the need. The lowest pair is reported either way.
+
 An unknown key in the config is an error, not a silent skip: a typo in
 `semantic` or `text` would otherwise drop the check it names.
 
@@ -235,8 +273,9 @@ result.failures;  // human-readable reasons, empty on pass
 result.perVision; // per simulation: minDeltaE, closestPair, band
 ```
 
-Fully typed. Three runtime dependencies: [culori](https://culorijs.org/)
-for color math, and the MCP SDK with zod for the server. No DOM, no network.
+Fully typed. One runtime dependency, [culori](https://culorijs.org/) for
+color math. The MCP server's own dependencies are bundled into the build,
+so an install is two packages. No DOM, no network.
 
 ## 4 · Wire it into an agent (MCP)
 
