@@ -31,10 +31,18 @@ if (!server.title || server.title.length > 100) errors.push("server.json title m
 if (!server.description || server.description.length > 100) errors.push("server.json description missing or > 100 chars");
 if (!/^https:\/\//.test(server.websiteUrl ?? "")) errors.push("server.json websiteUrl missing or not https");
 
+// The GitHub Action runs the npm package at a pinned version. That default
+// must be the version being released, or `uses: ...@vX.Y.Z` runs older code.
+const actionYml = readFileSync(new URL("../action.yml", import.meta.url), "utf8");
+const actionVersion = /\n {2}version:\n(?: {4}.*\n)*? {4}default: "([^"]+)"/.exec(actionYml)?.[1];
+if (actionVersion !== pkg.version) {
+  errors.push(`action.yml version default "${actionVersion}" != package.json version "${pkg.version}"`);
+}
+
 if (errors.length > 0) {
-  console.error("server.json is out of sync with package.json:");
+  console.error("release metadata is out of sync with package.json:");
   for (const e of errors) console.error(`  - ${e}`);
   process.exit(1);
 }
 
-console.log(`server.json in sync with package.json (v${pkg.version})`);
+console.log(`server.json and action.yml in sync with package.json (v${pkg.version})`);

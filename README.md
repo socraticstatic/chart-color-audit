@@ -141,14 +141,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npx chart-color-audit
+      - uses: socraticstatic/chart-color-audit@v0.2.6
 ```
 
-Done. A token edit that breaks a floor now exits 1 with named findings,
-in the PR, before anyone screenshots anything.
+Done. A token edit that breaks a floor now fails the job with named
+findings, in the PR, before anyone screenshots anything. Each finding is an
+error annotation on the run, and the job summary carries the full table:
+every simulation, the closest pair with its hex values, and every slot
+below the contrast floor.
 
-Prefer a pinned dependency? `npm i -D chart-color-audit` and call it from a
-package script. Same behavior.
+### Action inputs
+
+| input | default | what it does |
+|---|---|---|
+| `config` | `chartaudit.config.json` | config file path; ignored when `colors` is set |
+| `colors` | | comma-separated palette, for a run with no config file |
+| `background` | | background for `colors` |
+| `mode` | | `perceptual` · `redundant-encodings` · `strict`; empty keeps the config's mode |
+| `fail-on-findings` | `true` | `false` reports findings without failing the job |
+| `working-directory` | `.` | where to run |
+| `version` | the action's own release | npm version of chart-color-audit to run |
+| `cli` | | command to run instead of the npm package, e.g. `npx --no-install chart-color-audit` to use the version in your own `package.json` |
+
+Outputs: `verdict` (`pass` or `fail`) and `findings` (a count).
+
+The action pins the npm package to the version it was released with, so a
+workflow pinned to a tag runs the same math every time.
+
+Prefer no action at all? `- run: npx chart-color-audit` is the whole gate:
+exit `0` pass, `1` fail, `2` bad input. Or `npm i -D chart-color-audit` and
+call it from a package script. Same behavior.
 
 ## The famous-palette test
 

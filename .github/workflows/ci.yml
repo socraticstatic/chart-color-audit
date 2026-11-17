@@ -23,3 +23,52 @@ jobs:
         run: |
           node dist/cli.js --colors "#2456A4,#B03A2E" --bg "#fff"
           node dist/cli.js --config test/fixtures/ci-config.json
+      - run: npm run check:sync
+
+  # The GitHub Action, run from this checkout against the built CLI.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Passing config passes
+        id: pass
+        uses: ./
+        with:
+          config: test/fixtures/ci-config.json
+          cli: node dist/cli.js
+      - name: Failing palette fails
+        id: fail
+        continue-on-error: true
+        uses: ./
+        with:
+          colors: "#4E79A7,#F28E2B,#E15759,#76B7B2,#59A14F"
+          background: "#fff"
+          cli: node dist/cli.js
+      - name: Failing palette reports without failing when asked
+        id: report
+        uses: ./
+        with:
+          colors: "#4E79A7,#F28E2B,#E15759,#76B7B2,#59A14F"
+          background: "#fff"
+          fail-on-findings: "false"
+          cli: node dist/cli.js
+      - name: Check outcomes and outputs
+        env:
+          PASS_VERDICT: ${{ steps.pass.outputs.verdict }}
+          FAIL_OUTCOME: ${{ steps.fail.outcome }}
+          FAIL_VERDICT: ${{ steps.fail.outputs.verdict }}
+          REPORT_VERDICT: ${{ steps.report.outputs.verdict }}
+          REPORT_FINDINGS: ${{ steps.report.outputs.findings }}
+        run: |
+          set -x
+          test "$PASS_VERDICT" = "pass"
+          test "$FAIL_OUTCOME" = "failure"
+          test "$FAIL_VERDICT" = "fail"
+          test "$REPORT_VERDICT" = "fail"
+          test "$REPORT_FINDINGS" -gt 0
