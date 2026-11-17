@@ -200,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: socraticstatic/chart-color-audit@v0.3.0
+      - uses: socraticstatic/chart-color-audit@v0.4.0
 ```
 
 Done. A token edit that breaks a floor now fails the job with named
