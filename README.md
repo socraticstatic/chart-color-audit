@@ -61,11 +61,25 @@ a human eye can tell apart.
 |---|---|---|
 | clearly distinct | ≥ 10 | survives a projector and a hallway glance |
 | distinguishable | ≥ 2 | a careful reader separates the series |
-| patterns carry identity | < 2 | color alone is not enough; dash/shape must carry it |
-| COLLISION | ≈ 0–1 | two series are the same color for these viewers |
+| patterns carry identity | < 2, at or above the floor | color alone is not enough; dash/shape must carry it |
+| COLLISION | below the floor | two series are the same color for these viewers |
 
-`closest pair` names the two slots (1-based) that came nearest. Fix those
-two, re-run, repeat.
+The floor depends on the mode (see [Floors](#floors)). In the default mode
+the floor is 2, so anything under 2 is a COLLISION and "patterns carry
+identity" only appears in `redundant-encodings`, where the floor is lower.
+
+`closest pair` names the two slots (1-based) that came nearest. When more
+than one pair is under the floor, every one is listed beneath the table and
+in `perVision[].failingPairs`, closest first, so one run shows the whole
+repair.
+
+`achromatopsia` is a grayscale check: Rec. 709 luminance, the view of a
+black-and-white print or a monochrome display. It is a floor for total loss
+of color, not a model of how the condition itself sees.
+
+Translucent colors (`rgba()`, 8-digit hex, `transparent`) are measured as
+they render: composited over the background first. The background itself
+must be opaque.
 
 ## CLI
 
@@ -99,12 +113,16 @@ tokens you already have:
   "tokens": "src/index.css",
 
   // CSS selector whose block holds the variables. Optional, default ":root".
+  // Another selector (".dark") is read on top of ":root", as the cascade
+  // applies it.
   "selector": ":root",
 
   // REQUIRED. Your data-series colors, in slot order.
   // Each entry is a literal ("#4E79A7"), a CSS variable name from the
   // tokens file ("--chart-cat-1"), or a dotted path into design-tokens
-  // JSON ("chart.categorical.1").
+  // JSON ("chart.categorical.1"). Aliases are followed: a CSS variable
+  // set to var(--other) or hsl(var(--other)), and a token set to
+  // "{other.token}".
   "categorical": ["--chart-cat-1", "--chart-cat-2", "--chart-cat-3"],
 
   // REQUIRED. The background your marks render on.
@@ -130,6 +148,9 @@ tokens you already have:
   "floors": { "minContrast": 3, "minTextContrast": 4.5 }
 }
 ```
+
+An unknown key in the config is an error, not a silent skip: a typo in
+`semantic` or `text` would otherwise drop the check it names.
 
 **Step 2.** Add the workflow:
 
@@ -214,8 +235,8 @@ result.failures;  // human-readable reasons, empty on pass
 result.perVision; // per simulation: minDeltaE, closestPair, band
 ```
 
-Fully typed. Two data dependencies ([culori](https://culorijs.org/) for
-color math, the MCP SDK for the server). No DOM, no network.
+Fully typed. Three runtime dependencies: [culori](https://culorijs.org/)
+for color math, and the MCP SDK with zod for the server. No DOM, no network.
 
 ## 4 · Wire it into an agent (MCP)
 

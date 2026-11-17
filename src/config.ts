@@ -6,15 +6,19 @@
  *   3. a dotted path ("chart.categorical.1") into a design-tokens JSON file
  */
 import { readFileSync } from "node:fs";
+import { dirname, resolve as resolvePath } from "node:path";
 import { parseColor } from "./engine/color.js";
-import { parseCssVars, type CssVars } from "./parsers/css.js";
+import { parseCssVars, resolveCssValue, type CssVars } from "./parsers/css.js";
 import { parseTokensJson, type TokenColors } from "./parsers/tokens.js";
 import type { FloorsMode, Floors } from "./engine/audit.js";
 
 export interface AuditConfig {
   /** Path to a .css or .json token file (relative to the config file). */
   tokens?: string;
-  /** CSS selector whose block holds the variables. Default ":root". */
+  /**
+   * CSS selector whose block holds the variables. Default ":root". Any other
+   * selector is read on top of ":root", as the cascade would apply it.
+   */
   selector?: string;
   /** Categorical slots, in order. Literals, --var names, or dotted paths. */
   categorical: string[];
@@ -41,15 +45,43 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+const CONFIG_KEYS = ["tokens", "selector", "categorical", "background", "semantic", "text", "mode", "floors"];
+
+function requireColorMap(value: unknown, key: string, configPath: string): void {
+  if (value === undefined) return;
+  if (!isRecord(value) || Object.values(value).some((v) => typeof v !== "string")) {
+    throw new Error(`${configPath}: "${key}" must be an object of role name to color reference.`);
+  }
+}
+
 export function validateConfig(raw: unknown, configPath: string): AuditConfig {
   if (!isRecord(raw)) throw new Error(`${configPath}: config must be a JSON object.`);
+  // An unknown key is almost always a typo, and a typo in an optional key
+  // would silently drop a check. "$schema" and other "$" keys are allowed.
+  const unknown = Object.keys(raw).filter((k) => !CONFIG_KEYS.includes(k) && !k.startsWith("$"));
+  if (unknown.length > 0) {
+    throw new Error(
+      `${configPath}: unknown key${unknown.length === 1 ? "" : "s"} ${unknown.map((k) => `"${k}"`).join(", ")}. ` +
+        `Expected: ${CONFIG_KEYS.join(", ")}.`
+    );
+  }
   const c = raw as Partial<AuditConfig>;
   if (!Array.isArray(c.categorical) || c.categorical.length === 0) {
     throw new Error(`${configPath}: "categorical" must be a non-empty array of color references.`);
   }
+  if (c.categorical.some((ref) => typeof ref !== "string" || ref.length === 0)) {
+    throw new Error(`${configPath}: every "categorical" entry must be a color reference string.`);
+  }
   if (typeof c.background !== "string" || c.background.length === 0) {
     throw new Error(`${configPath}: "background" (string) is required.`);
   }
+  for (const key of ["tokens", "selector"] as const) {
+    if (c[key] !== undefined && typeof c[key] !== "string") {
+      throw new Error(`${configPath}: "${key}" must be a string.`);
+    }
+  }
+  requireColorMap(c.semantic, "semantic", configPath);
+  requireColorMap(c.text, "text", configPath);
   if (c.mode && !["perceptual", "redundant-encodings", "strict"].includes(c.mode)) {
     throw new Error(
       `${configPath}: "mode" must be perceptual, redundant-encodings, or strict (got "${String(c.mode)}").`
@@ -64,27 +96,30 @@ export function resolveConfig(config: AuditConfig, baseDir: string): ResolvedCon
   let tokenColors: TokenColors | null = null;
 
   if (config.tokens) {
-    const path = config.tokens.startsWith("/")
-      ? config.tokens
-      : `${baseDir}/${config.tokens}`;
-    const content = readFileSync(path, "utf8");
-    if (config.tokens.endsWith(".json")) {
+    const content = readFileSync(resolvePath(baseDir, config.tokens), "utf8");
+    if (config.tokens.toLowerCase().endsWith(".json")) {
       tokenColors = parseTokensJson(content);
     } else {
-      cssVars = parseCssVars(content, config.selector ?? ":root");
+      const selector = config.selector ?? ":root";
+      cssVars = parseCssVars(content, ":root");
+      if (selector !== ":root") cssVars = { ...cssVars, ...parseCssVars(content, selector) };
     }
   }
 
   function resolve(ref: string, what: string): string {
     if (parseColor(ref)) return ref;
-    if (ref.startsWith("--")) {
-      const v = cssVars?.[ref];
-      if (v === undefined) {
+    if (ref.startsWith("--") || ref.includes("var(")) {
+      const declared = ref.startsWith("--") ? cssVars?.[ref] : ref;
+      if (declared === undefined) {
         throw new Error(
           `${what}: "${ref}" not found in ${config.tokens ?? "(no tokens file configured)"}${config.selector ? ` under ${config.selector}` : ""}.`
         );
       }
-      return v;
+      try {
+        return resolveCssValue(declared, cssVars ?? {}, ref.startsWith("--") ? [ref] : []);
+      } catch (e) {
+        throw new Error(`${what}: "${ref}": ${e instanceof Error ? e.message : String(e)}.`);
+      }
     }
     const t = tokenColors?.[ref];
     if (t !== undefined) return t;
@@ -117,8 +152,5 @@ export function resolveConfig(config: AuditConfig, baseDir: string): ResolvedCon
 export function loadConfig(configPath: string): ResolvedConfig {
   const raw: unknown = JSON.parse(readFileSync(configPath, "utf8"));
   const config = validateConfig(raw, configPath);
-  const baseDir = configPath.includes("/")
-    ? configPath.slice(0, configPath.lastIndexOf("/"))
-    : ".";
-  return resolveConfig(config, baseDir);
+  return resolveConfig(config, dirname(configPath));
 }

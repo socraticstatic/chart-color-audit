@@ -16,6 +16,8 @@ export interface ColorRecord {
   rgb: Rgb;
   /** OKLab coordinates. */
   oklab: { l: number; a: number; b: number };
+  /** Opacity in 0..1. 1 when the input carries no alpha. */
+  alpha: number;
 }
 
 /**
@@ -50,6 +52,7 @@ export function parseColor(input: string): ColorRecord | null {
     hex: formatHex(parsed) ?? "#000000",
     rgb,
     oklab: { l: lab.l ?? 0, a: lab.a ?? 0, b: lab.b ?? 0 },
+    alpha: clamp01(parsed.alpha ?? 1),
   };
 }
 
@@ -63,7 +66,24 @@ function fromRgb(rgb: Rgb): ColorRecord {
     hex: formatHex({ mode: "rgb", ...rgb }) ?? "#000000",
     rgb,
     oklab: { l: lab.l ?? 0, a: lab.a ?? 0, b: lab.b ?? 0 },
+    alpha: 1,
   };
+}
+
+/**
+ * The color a viewer sees when `color` is drawn on an opaque `background`:
+ * source-over compositing in sRGB, as browsers do by default. An opaque
+ * color is returned unchanged. hex, rgb and oklab ignore alpha, so every
+ * measurement of a translucent color has to go through this first.
+ */
+export function compositeOver(color: ColorRecord, background: ColorRecord): ColorRecord {
+  if (color.alpha >= 1) return color;
+  const a = color.alpha;
+  return fromRgb({
+    r: color.rgb.r * a + background.rgb.r * (1 - a),
+    g: color.rgb.g * a + background.rgb.g * (1 - a),
+    b: color.rgb.b * a + background.rgb.b * (1 - a),
+  });
 }
 
 /**
@@ -109,7 +129,10 @@ function relativeLuminance(c: Rgb): number {
   return 0.2126 * srgbToLinear(c.r) + 0.7152 * srgbToLinear(c.g) + 0.0722 * srgbToLinear(c.b);
 }
 
-/** WCAG contrast ratio between two colors (order-independent). */
+/**
+ * WCAG contrast ratio between two colors (order-independent). Alpha is not
+ * applied here: composite a translucent color with `compositeOver` first.
+ */
 export function contrastRatio(a: ColorRecord, b: ColorRecord): number {
   const la = relativeLuminance(a.rgb);
   const lb = relativeLuminance(b.rgb);
