@@ -33,6 +33,7 @@ export {
   type VisionFinding,
 } from "./engine/audit.js";
 export {
+  compositeOver,
   contrastRatio,
   deltaE,
   parseColor,
@@ -43,8 +44,9 @@ export {
   type VisionMode,
 } from "./engine/color.js";
 export { simulateRgb, DEUTAN_1, PROTAN_1, TRITAN_1, type CvdType, type Matrix } from "./engine/cvd.js";
-export { parseCssVars, type CssVars } from "./parsers/css.js";
-export { parseTokensJson, type TokenColors } from "./parsers/tokens.js";
+export { parseCssVars, resolveCssValue, type CssVars } from "./parsers/css.js";
+export { parseTokensJson, tokenColorToCss, type TokenColors } from "./parsers/tokens.js";
+export { splitColors } from "./split.js";
 export {
   loadConfig,
   resolveConfig,

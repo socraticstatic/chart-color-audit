@@ -13,6 +13,7 @@
 import { existsSync } from "node:fs";
 import { audit, type AuditResult, type FloorsMode } from "./engine/audit.js";
 import { loadConfig } from "./config.js";
+import { splitColors } from "./split.js";
 
 const HELP = `chart-color-audit — accessibility audit for chart color palettes
 
@@ -53,10 +54,10 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i];
     switch (a) {
       case "mcp": args.mcp = true; break;
-      case "--colors": args.colors = argv[++i]; break;
-      case "--bg": case "--background": args.bg = argv[++i]; break;
-      case "--mode": args.mode = argv[++i]; break;
-      case "--config": args.config = argv[++i]; break;
+      case "--colors": args.colors = value(argv, ++i, a); break;
+      case "--bg": case "--background": args.bg = value(argv, ++i, a); break;
+      case "--mode": args.mode = value(argv, ++i, a); break;
+      case "--config": args.config = value(argv, ++i, a); break;
       case "--json": args.json = true; break;
       case "--help": case "-h": args.help = true; break;
       case "--version": case "-v": args.version = true; break;
@@ -65,6 +66,12 @@ function parseArgs(argv: string[]): Args {
     }
   }
   return args;
+}
+
+function value(argv: string[], i: number, flag: string): string {
+  const v = argv[i];
+  if (v === undefined || v === "") fail(`${flag} needs a value.\nRun with --help for usage.`);
+  return v;
 }
 
 function fail(message: string): never {
@@ -91,6 +98,15 @@ function printHuman(result: AuditResult) {
     const band = v.band ? BAND_LABEL[v.band] ?? v.band : "single color";
     const mark = v.pass ? "·" : "✗";
     w(`  ${mark} ${v.mode.padEnd(13)} ${de}   ${pair} ${band}`);
+  }
+  for (const v of result.perVision) {
+    const others = v.failingPairs.slice(1);
+    if (others.length === 0) continue;
+    const shown = others
+      .slice(0, 5)
+      .map((p) => `${p.pair[0] + 1} ↔ ${p.pair[1] + 1} (${p.deltaE.toFixed(2)})`)
+      .join(", ");
+    w(`    ${v.mode}: also below the floor: ${shown}${others.length > 5 ? `, and ${others.length - 5} more` : ""}`);
   }
   w("");
   const worst = result.contrast.reduce((a, b) => (b.ratio < a.ratio ? b : a), result.contrast[0]!);
@@ -144,7 +160,7 @@ async function main() {
     if (args.colors) {
       if (!args.bg) fail("--colors requires --bg <background color>.");
       result = audit({
-        colors: args.colors.split(",").map((s) => s.trim()).filter(Boolean),
+        colors: splitColors(args.colors),
         background: args.bg,
         mode: args.mode as FloorsMode | undefined,
       });

@@ -11,6 +11,7 @@
  * separation with no redundancy assumed.
  */
 import {
+  compositeOver,
   contrastRatio,
   deltaE,
   parseColor,
@@ -64,6 +65,8 @@ export interface VisionFinding {
   band: Band | null;
   floor: number;
   pass: boolean;
+  /** Every pair below the floor, closest first. Empty when the mode passes. */
+  failingPairs: { pair: [number, number]; deltaE: number }[];
 }
 
 export interface ContrastFinding {
@@ -118,7 +121,12 @@ export interface TextFinding {
 }
 
 export interface AuditResult {
-  colors: { hex: string; input: string }[];
+  /**
+   * `hex` is the color as rendered on the background. For a translucent
+   * input that is the composited color, and `alpha` carries the input's
+   * opacity.
+   */
+  colors: { hex: string; input: string; alpha?: number }[];
   background: { hex: string; input: string };
   mode: FloorsMode;
   floors: Floors;
@@ -132,6 +140,33 @@ export interface AuditResult {
 }
 
 class AuditError extends Error {}
+
+const FLOOR_KEYS: (keyof Floors)[] = [
+  "minDeltaENormal",
+  "minDeltaECvd",
+  "minContrast",
+  "minTextContrast",
+];
+
+/** Floor overrides, checked: a mistyped floor must not become a silent pass or fail. */
+function validFloors(floors: Partial<Floors> | undefined): Partial<Floors> {
+  const out: Partial<Floors> = {};
+  if (floors === undefined) return out;
+  if (typeof floors !== "object" || floors === null || Array.isArray(floors)) {
+    throw new AuditError(`"floors" must be an object with any of: ${FLOOR_KEYS.join(", ")}.`);
+  }
+  for (const [key, value] of Object.entries(floors as Record<string, unknown>)) {
+    if (!FLOOR_KEYS.includes(key as keyof Floors)) {
+      throw new AuditError(`Unknown floor "${key}". Expected one of: ${FLOOR_KEYS.join(", ")}.`);
+    }
+    if (value === undefined) continue;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      throw new AuditError(`Floor "${key}" must be a number of 0 or more (got ${JSON.stringify(value)}).`);
+    }
+    out[key as keyof Floors] = value;
+  }
+  return out;
+}
 
 function parseOrThrow(input: string, what: string): ColorRecord {
   const c = parseColor(input);
@@ -151,38 +186,67 @@ export function audit(input: AuditInput): AuditResult {
       `Unknown mode "${String(mode)}" — expected one of ${Object.keys(FLOOR_PRESETS).join(", ")}`
     );
   }
-  const floors: Floors = { ...preset, ...input.floors };
+  const floors: Floors = { ...preset, ...validFloors(input.floors) };
   if (input.colors.length === 0) throw new AuditError("No colors given.");
 
-  const colors = input.colors.map((c, i) => parseOrThrow(c, `color ${i + 1}`));
   const background = parseOrThrow(input.background, "background");
+  if (background.alpha < 1) {
+    throw new AuditError(
+      `Background "${input.background}" is not opaque (alpha ${background.alpha}). ` +
+        "Give the solid color the marks sit on."
+    );
+  }
+  // A translucent mark is seen blended with the background, so that blend is
+  // the color every check measures.
+  const parsed = input.colors.map((c, i) => parseOrThrow(c, `color ${i + 1}`));
+  const colors = parsed.map((c) => compositeOver(c, background));
   const failures: string[] = [];
 
   // Pairwise separation per vision mode.
   const perVision: VisionFinding[] = VISION_MODES.map((visionMode) => {
     const floor = visionMode === "normal" ? floors.minDeltaENormal : floors.minDeltaECvd;
     if (colors.length < 2) {
-      return { mode: visionMode, minDeltaE: Infinity, closestPair: null, band: null, floor, pass: true };
+      return {
+        mode: visionMode,
+        minDeltaE: Infinity,
+        closestPair: null,
+        band: null,
+        floor,
+        pass: true,
+        failingPairs: [],
+      };
     }
     const sim = colors.map((c) => simulate(c, visionMode));
     let min = Infinity;
     let pair: [number, number] = [0, 1];
+    const failingPairs: VisionFinding["failingPairs"] = [];
     for (let i = 0; i < sim.length; i++) {
       for (let j = i + 1; j < sim.length; j++) {
         const a = sim[i];
         const b = sim[j];
         if (!a || !b) continue;
         const d = deltaE(a, b);
+        if (d < floor) failingPairs.push({ pair: [i, j], deltaE: d });
         if (d < min) {
           min = d;
           pair = [i, j];
         }
       }
     }
+    failingPairs.sort((x, y) => x.deltaE - y.deltaE);
     const pass = min >= floor;
     if (!pass) {
+      const others = failingPairs.slice(1);
+      const shown = others
+        .slice(0, 5)
+        .map((p) => `${p.pair[0] + 1} and ${p.pair[1] + 1} (${p.deltaE.toFixed(2)})`)
+        .join(", ");
+      const more =
+        others.length === 0
+          ? ""
+          : ` Also below the floor: ${shown}${others.length > 5 ? `, and ${others.length - 5} more` : ""}.`;
       failures.push(
-        `${visionMode}: slots ${pair[0] + 1} and ${pair[1] + 1} are ΔE ${min.toFixed(2)} apart (floor ${floor}).`
+        `${visionMode}: slots ${pair[0] + 1} and ${pair[1] + 1} are ΔE ${min.toFixed(2)} apart (floor ${floor}).${more}`
       );
     }
     return {
@@ -192,6 +256,7 @@ export function audit(input: AuditInput): AuditResult {
       band: bandFor(min, floor),
       floor,
       pass,
+      failingPairs,
     };
   });
 
@@ -210,7 +275,7 @@ export function audit(input: AuditInput): AuditResult {
   // Semantic roles vs. background and vs. the categorical palette.
   const semantic: SemanticFinding[] = Object.entries(input.semanticRoles ?? {}).map(
     ([role, value]) => {
-      const color = parseOrThrow(value, `semantic role "${role}"`);
+      const color = compositeOver(parseOrThrow(value, `semantic role "${role}"`), background);
       const roleContrast = contrastRatio(color, background);
 
       let nearestSlot = -1;
@@ -268,7 +333,7 @@ export function audit(input: AuditInput): AuditResult {
 
   // Text tokens vs. background at the SC 1.4.3 floor.
   const text: TextFinding[] = Object.entries(input.textRoles ?? {}).map(([role, value]) => {
-    const color = parseOrThrow(value, `text token "${role}"`);
+    const color = compositeOver(parseOrThrow(value, `text token "${role}"`), background);
     const ratio = contrastRatio(color, background);
     const pass = ratio >= floors.minTextContrast;
     if (!pass) {
@@ -280,7 +345,12 @@ export function audit(input: AuditInput): AuditResult {
   });
 
   return {
-    colors: colors.map((c, i) => ({ hex: c.hex, input: input.colors[i] ?? "" })),
+    colors: colors.map((c, i) => {
+      const alpha = parsed[i]?.alpha ?? 1;
+      return alpha < 1
+        ? { hex: c.hex, input: input.colors[i] ?? "", alpha }
+        : { hex: c.hex, input: input.colors[i] ?? "" };
+    }),
     background: { hex: background.hex, input: input.background },
     mode,
     floors,
