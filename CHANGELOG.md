@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 Each of these made the audit give a wrong answer, or fail, on ordinary input.
 
