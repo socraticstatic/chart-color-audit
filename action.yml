@@ -1,0 +1,56 @@
+name: Chart Color Audit
+description: Fail the build when chart colors stop being distinguishable for colorblind readers or lose contrast.
+author: Micah Boswell
+branding:
+  icon: bar-chart-2
+  color: blue
+
+inputs:
+  config:
+    description: Path to the config file. Ignored when `colors` is set.
+    default: chartaudit.config.json
+  colors:
+    description: Comma-separated palette, for a run with no config file. Needs `background`.
+    default: ""
+  background:
+    description: Background the marks render on. Used with `colors`.
+    default: ""
+  mode:
+    description: perceptual, redundant-encodings or strict. Empty keeps the config's mode, or perceptual.
+    default: ""
+  fail-on-findings:
+    description: Set to false to report findings without failing the job.
+    default: "true"
+  working-directory:
+    description: Directory to run in.
+    default: "."
+  version:
+    description: chart-color-audit version to run from npm. Defaults to the version this action was released with.
+    default: "0.2.6"
+  cli:
+    description: Command to run in place of the npm package, for example `npx --no-install chart-color-audit` to use the version in your own package.json.
+    default: ""
+
+outputs:
+  verdict:
+    description: pass or fail.
+    value: ${{ steps.audit.outputs.verdict }}
+  findings:
+    description: Number of findings.
+    value: ${{ steps.audit.outputs.findings }}
+
+runs:
+  using: composite
+  steps:
+    - id: audit
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_COLORS: ${{ inputs.colors }}
+        INPUT_BACKGROUND: ${{ inputs.background }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_FAIL: ${{ inputs.fail-on-findings }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_CLI: ${{ inputs.cli }}
+      run: bash "$GITHUB_ACTION_PATH/action/run.sh"
