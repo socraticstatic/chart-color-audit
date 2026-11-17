@@ -1,0 +1,2 @@
+# Tests and release checks read these files line by line. Keep LF on every OS.
+* text=auto eol=lf
