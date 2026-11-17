@@ -1,6 +1,9 @@
 name: Release
 
-# Publishes to npm with provenance when a v* tag is pushed.
+# Publishes to npm with provenance when a full version tag is pushed, or when
+# run by hand from the Actions tab on main. A manual run publishes the version
+# in package.json, then creates the vX.Y.Z tag and the GitHub Release itself.
+# A tag created by the workflow's own token does not start a second run.
 #
 # Auth: npm "trusted publishing" (OIDC) — configure once on npmjs.com after
 # the first manual publish: package → Settings → Trusted Publisher →
@@ -12,6 +15,7 @@ name: Release
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,7 +24,15 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # a manual run creates the tag and the GitHub Release
+      id-token: write
     steps:
+      - name: Manual runs release from main only
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run this workflow from main, not $GITHUB_REF."
+          exit 1
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -35,6 +47,13 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm publish --provenance --access public
+      - name: Tag and create the GitHub Release (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
 
   # Publishes server.json to the official MCP Registry
   # (registry.modelcontextprotocol.io) after the npm publish succeeds.
