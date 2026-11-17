@@ -3,7 +3,7 @@
   "name": "io.github.socraticstatic/chart-color-audit",
   "title": "Chart Color Audit",
   "description": "CI-friendly accessibility audit for chart color palettes: WCAG contrast, CVD simulation, OKLab ΔE.",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "websiteUrl": "https://github.com/socraticstatic/chart-color-audit#readme",
   "repository": {
     "url": "https://github.com/socraticstatic/chart-color-audit",
@@ -15,7 +15,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "chart-color-audit",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
