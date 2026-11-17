@@ -185,3 +185,46 @@ describe("audit — text tokens (SC 1.4.3)", () => {
     expect(r.text[0]!.pass).toBe(true);
   });
 });
+
+// Issue #1, reported by trackoor (credit: https://ucsbplse.github.io/).
+// parseColor kept sRGB channels outside 0..1 while the hex was clipped, so
+// contrast was measured on a different color from the one reported.
+describe("out-of-range and wide-gamut input (issue #1)", () => {
+  const inRange = (c: { r: number; g: number; b: number }) =>
+    [c.r, c.g, c.b].every((v) => v >= 0 && v <= 1);
+
+  it("keeps rgb channels in 0..1 for wide-gamut colors", () => {
+    for (const input of ["color(display-p3 1 0 0)", "oklch(0.724 0.347 8.3)", "rgb(0 -300 0)"]) {
+      expect(inRange(parseColor(input)!.rgb), input).toBe(true);
+    }
+  });
+
+  it("clamps an out-of-range rgb() channel: rgb(0 -300 0) is black, 21:1 on white", () => {
+    const c = parseColor("rgb(0 -300 0)")!;
+    expect(c.hex).toBe("#000000");
+    expect(contrastRatio(c, parseColor("#ffffff")!)).toBeCloseTo(21, 6);
+  });
+
+  it("measures a wide-gamut color as the hex it reports", () => {
+    const gray = parseColor("#eaeaea")!;
+    const p3 = parseColor("color(display-p3 1 0 0)")!;
+    expect(p3.hex).toBe("#ff0000");
+    expect(contrastRatio(p3, gray)).toBeCloseTo(contrastRatio(parseColor("#ff0000")!, gray), 6);
+
+    const white = parseColor("#ffffff")!;
+    const lch = parseColor("oklch(0.724 0.347 8.3)")!;
+    expect(contrastRatio(lch, white)).toBeCloseTo(contrastRatio(parseColor(lch.hex)!, white), 2);
+  });
+
+  it("no longer fails display-p3 red on #eaeaea, which clears 3:1", () => {
+    const r = audit({ colors: ["color(display-p3 1 0 0)"], background: "#eaeaea" });
+    expect(r.failures.filter((f) => f.startsWith("contrast"))).toEqual([]);
+  });
+
+  it("leaves in-gamut colors untouched", () => {
+    const c = parseColor("#4E79A7")!;
+    expect(c.rgb.r).toBeCloseTo(0x4e / 255, 12);
+    expect(c.rgb.g).toBeCloseTo(0x79 / 255, 12);
+    expect(c.rgb.b).toBeCloseTo(0xa7 / 255, 12);
+  });
+});

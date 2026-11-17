@@ -33,13 +33,28 @@ export function parseColor(input: string): ColorRecord | null {
     parsed = parse(`hsl(${raw})`);
   }
   if (!parsed) return null;
-  const rgb = toRgb(parsed) as CuloriRgb;
-  const lab = toOklab(parsed) as Oklab;
+  const converted = toRgb(parsed) as CuloriRgb;
+  const r = converted.r ?? 0;
+  const g = converted.g ?? 0;
+  const b = converted.b ?? 0;
+  // Wide-gamut inputs (display-p3, high-chroma oklch) and out-of-range rgb()
+  // channels convert to sRGB values outside 0..1. The hex is clipped, so the
+  // channels are clipped the same way: every number the audit reports then
+  // describes the color the hex names. Unclipped, the sRGB transfer function
+  // is fed values it is not defined for and contrast comes out wrong, even
+  // negative (issue #1).
+  const rgb: Rgb = { r: clamp01(r), g: clamp01(g), b: clamp01(b) };
+  const clipped = rgb.r !== r || rgb.g !== g || rgb.b !== b;
+  const lab = (clipped ? toOklab({ mode: "rgb", ...rgb }) : toOklab(parsed)) as Oklab;
   return {
     hex: formatHex(parsed) ?? "#000000",
-    rgb: { r: rgb.r ?? 0, g: rgb.g ?? 0, b: rgb.b ?? 0 },
+    rgb,
     oklab: { l: lab.l ?? 0, a: lab.a ?? 0, b: lab.b ?? 0 },
   };
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
 }
 
 function fromRgb(rgb: Rgb): ColorRecord {
