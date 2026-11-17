@@ -26,7 +26,7 @@ inputs:
     default: "."
   version:
     description: chart-color-audit version to run from npm. Defaults to the version this action was released with.
-    default: "0.3.0"
+    default: "0.4.0"
   cli:
     description: Command to run in place of the npm package, for example `npx --no-install chart-color-audit` to use the version in your own package.json.
     default: ""

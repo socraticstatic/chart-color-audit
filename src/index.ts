@@ -28,6 +28,7 @@ export {
   type ContrastFinding,
   type Floors,
   type FloorsMode,
+  type PairContrastFinding,
   type SemanticFinding,
   type SemanticStatus,
   type VisionFinding,
@@ -47,8 +48,11 @@ export { simulateRgb, DEUTAN_1, PROTAN_1, TRITAN_1, type CvdType, type Matrix } 
 export { parseCssVars, resolveCssValue, type CssVars } from "./parsers/css.js";
 export { parseTokensJson, tokenColorToCss, type TokenColors } from "./parsers/tokens.js";
 export { splitColors } from "./split.js";
+export { auditConfigFile, isThemed, type ThemedAuditResult } from "./run.js";
 export {
   loadConfig,
+  loadThemes,
+  type ThemeConfig,
   resolveConfig,
   validateConfig,
   type AuditConfig,

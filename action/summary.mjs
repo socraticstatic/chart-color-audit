@@ -15,18 +15,32 @@ export function escapeCell(text) {
   return String(text).replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
-/** One `::error` line per finding. */
+/** A themed result as [name, result] pairs; a plain result as one pair named null. */
+export function themesOf(result) {
+  return result.themes ? Object.entries(result.themes) : [[null, result]];
+}
+
+/** One `::error` line per finding. A themed finding names its theme. */
 export function annotations(result) {
-  return result.failures.map((f) => `::error title=chart-color-audit::${escapeCommand(f)}`);
+  return themesOf(result).flatMap(([name, r]) =>
+    r.failures.map((f) => `::error title=chart-color-audit::${escapeCommand(name === null ? f : `[${name}] ${f}`)}`)
+  );
 }
 
 const fmt = (n, digits) => (typeof n === "number" && Number.isFinite(n) ? n.toFixed(digits) : "n/a");
 
-/** The job summary, as Markdown. */
+/** The job summary, as Markdown. A themed result gets one section per theme. */
 export function markdown(result) {
+  if (!result.themes) return section(result, "### Chart color audit");
+  const out = [`### Chart color audit: ${result.verdict === "pass" ? "pass" : "fail"}`, ""];
+  for (const [name, r] of themesOf(result)) out.push(section(r, `#### Theme ${escapeCell(name)}`));
+  return out.join("\n");
+}
+
+function section(result, heading) {
   const pass = result.verdict === "pass";
   const out = [];
-  out.push(`### Chart color audit: ${pass ? "pass" : "fail"}`);
+  out.push(`${heading}: ${pass ? "pass" : "fail"}`);
   out.push("");
   out.push(
     `${result.colors.length} color${result.colors.length === 1 ? "" : "s"} on \`${result.background.hex}\`, mode \`${result.mode}\`.`
@@ -61,7 +75,8 @@ export function markdown(result) {
 
 /** Step outputs, as `name=value` lines. */
 export function outputs(result) {
-  return [`verdict=${result.verdict === "pass" ? "pass" : "fail"}`, `findings=${result.failures.length}`];
+  const findings = themesOf(result).reduce((n, [, r]) => n + r.failures.length, 0);
+  return [`verdict=${result.verdict === "pass" ? "pass" : "fail"}`, `findings=${findings}`];
 }
 
 function main(path) {

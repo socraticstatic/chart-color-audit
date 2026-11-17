@@ -32,15 +32,22 @@ export interface Floors {
   minContrast: number;
   /** Min WCAG contrast for tokens rendered as UI text (SC 1.4.3). */
   minTextContrast: number;
+  /**
+   * Min WCAG contrast between any two series. 0 (the default in every
+   * preset) turns the check off. Set it to 3 for charts whose series touch
+   * with nothing between them (pie slices, stacked bars or areas with no
+   * gap or stroke), where SC 1.4.11 asks for 3:1 across the shared edge.
+   */
+  minPairContrast: number;
 }
 
 export const FLOOR_PRESETS: Record<FloorsMode, Floors> = {
   // JND ≈ 2 in OKLab×100: fail what an eye cannot tell apart.
-  perceptual: { minDeltaENormal: 2, minDeltaECvd: 2, minContrast: 3, minTextContrast: 4.5 },
+  perceptual: { minDeltaENormal: 2, minDeltaECvd: 2, minContrast: 3, minTextContrast: 4.5, minPairContrast: 0 },
   // Color paired 1:1 with dash/decal/shape — color only avoids collision.
-  "redundant-encodings": { minDeltaENormal: 1, minDeltaECvd: 0.1, minContrast: 3, minTextContrast: 4.5 },
+  "redundant-encodings": { minDeltaENormal: 1, minDeltaECvd: 0.1, minContrast: 3, minTextContrast: 4.5, minPairContrast: 0 },
   // No redundancy assumed: clearly distinct normally, distinguishable under CVD.
-  strict: { minDeltaENormal: 10, minDeltaECvd: 4, minContrast: 3, minTextContrast: 4.5 },
+  strict: { minDeltaENormal: 10, minDeltaECvd: 4, minContrast: 3, minTextContrast: 4.5, minPairContrast: 0 },
 };
 
 /** Human-word reading of a measured minimum pairwise ΔE. */
@@ -67,6 +74,19 @@ export interface VisionFinding {
   pass: boolean;
   /** Every pair below the floor, closest first. Empty when the mode passes. */
   failingPairs: { pair: [number, number]; deltaE: number }[];
+}
+
+/** WCAG contrast between series, for charts whose series share an edge. */
+export interface PairContrastFinding {
+  /** Lowest contrast ratio between any two series (Infinity with one color). */
+  min: number;
+  /** Zero-based indexes of that pair (null when fewer than 2 colors). */
+  lowestPair: [number, number] | null;
+  /** The active floor. 0 means the check is off and `pass` is always true. */
+  floor: number;
+  pass: boolean;
+  /** Every pair below the floor, lowest first. Empty when the check is off. */
+  failingPairs: { pair: [number, number]; ratio: number }[];
 }
 
 export interface ContrastFinding {
@@ -132,6 +152,7 @@ export interface AuditResult {
   floors: Floors;
   perVision: VisionFinding[];
   contrast: ContrastFinding[];
+  pairContrast: PairContrastFinding;
   semantic: SemanticFinding[];
   text: TextFinding[];
   verdict: "pass" | "fail";
@@ -146,6 +167,7 @@ const FLOOR_KEYS: (keyof Floors)[] = [
   "minDeltaECvd",
   "minContrast",
   "minTextContrast",
+  "minPairContrast",
 ];
 
 /** Floor overrides, checked: a mistyped floor must not become a silent pass or fail. */
@@ -272,6 +294,42 @@ export function audit(input: AuditInput): AuditResult {
     return { index, hex: c.hex, ratio, pass };
   });
 
+  // WCAG contrast between series. Always measured; a failure only when the
+  // caller has set a floor, because it matters only where series touch.
+  let pairMin = Infinity;
+  let lowestPair: [number, number] | null = null;
+  const lowPairs: PairContrastFinding["failingPairs"] = [];
+  for (let i = 0; i < colors.length; i++) {
+    for (let j = i + 1; j < colors.length; j++) {
+      const a = colors[i];
+      const b = colors[j];
+      if (!a || !b) continue;
+      const ratio = contrastRatio(a, b);
+      if (ratio < floors.minPairContrast) lowPairs.push({ pair: [i, j], ratio });
+      if (ratio < pairMin) {
+        pairMin = ratio;
+        lowestPair = [i, j];
+      }
+    }
+  }
+  lowPairs.sort((x, y) => x.ratio - y.ratio);
+  const pairContrast: PairContrastFinding = {
+    min: pairMin,
+    lowestPair,
+    floor: floors.minPairContrast,
+    pass: lowPairs.length === 0,
+    failingPairs: lowPairs,
+  };
+  if (!pairContrast.pass) {
+    const shown = lowPairs
+      .slice(0, 6)
+      .map((p) => `${p.pair[0] + 1} and ${p.pair[1] + 1} (${p.ratio.toFixed(2)}:1)`)
+      .join(", ");
+    failures.push(
+      `pair contrast: ${lowPairs.length} pair${lowPairs.length === 1 ? "" : "s"} of series below ${floors.minPairContrast}:1 against each other: ${shown}${lowPairs.length > 6 ? `, and ${lowPairs.length - 6} more` : ""}. Where series touch, WCAG 2.2 SC 1.4.11 asks for the floor across the shared edge.`
+    );
+  }
+
   // Semantic roles vs. background and vs. the categorical palette.
   const semantic: SemanticFinding[] = Object.entries(input.semanticRoles ?? {}).map(
     ([role, value]) => {
@@ -356,6 +414,7 @@ export function audit(input: AuditInput): AuditResult {
     floors,
     perVision,
     contrast,
+    pairContrast,
     semantic,
     text,
     verdict: failures.length === 0 ? "pass" : "fail",

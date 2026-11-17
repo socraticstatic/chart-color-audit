@@ -7,12 +7,21 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22, 24]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - run: npm run typecheck
@@ -23,6 +32,7 @@ jobs:
         run: |
           node dist/cli.js --colors "#2456A4,#B03A2E" --bg "#fff"
           node dist/cli.js --config test/fixtures/ci-config.json
+          node dist/cli.js --config test/fixtures/themes-config.json
       - name: CLI contract (exit codes on real input)
         run: |
           set -x
@@ -30,7 +40,33 @@ jobs:
           code=0; node dist/cli.js --colors "transparent" --bg "#fff" || code=$?; test "$code" = 1
           code=0; node dist/cli.js --colors "#000" --bg "rgba(255,255,255,0.5)" || code=$?; test "$code" = 2
           code=0; node dist/cli.js --colors || code=$?; test "$code" = 2
+      - name: MCP server answers over stdio from the built bundle
+        run: npm run test:mcp
       - run: npm run check:sync
+
+  # The package claims Node 18. The test runner needs Node 20, so build on 22
+  # and run what ships on 18.
+  node18:
+    name: built package runs on node 18
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 18
+      - run: node --version
+      - run: node dist/cli.js --config test/fixtures/ci-config.json
+      - run: node scripts/mcp-smoke.mjs node dist/cli.js mcp
+      - name: The typed API loads as ESM and as CommonJS
+        run: |
+          node -e "import('./dist/index.js').then((m) => { if (m.audit({ colors: ['#000'], background: '#fff' }).verdict !== 'pass') process.exit(1) })"
+          node -e "if (require('./dist/index.cjs').audit({ colors: ['#000'], background: '#fff' }).verdict !== 'pass') process.exit(1)"
 
   # The GitHub Action, run from this checkout against the built CLI.
   action:
@@ -65,6 +101,12 @@ jobs:
           background: "#fff"
           fail-on-findings: "false"
           cli: node dist/cli.js
+      - name: Themed config passes, one summary section per theme
+        id: themed
+        uses: ./
+        with:
+          config: test/fixtures/themes-config.json
+          cli: node dist/cli.js
       - name: Check outcomes and outputs
         env:
           PASS_VERDICT: ${{ steps.pass.outputs.verdict }}
@@ -72,6 +114,7 @@ jobs:
           FAIL_VERDICT: ${{ steps.fail.outputs.verdict }}
           REPORT_VERDICT: ${{ steps.report.outputs.verdict }}
           REPORT_FINDINGS: ${{ steps.report.outputs.findings }}
+          THEMED_VERDICT: ${{ steps.themed.outputs.verdict }}
         run: |
           set -x
           test "$PASS_VERDICT" = "pass"
@@ -79,3 +122,4 @@ jobs:
           test "$FAIL_VERDICT" = "fail"
           test "$REPORT_VERDICT" = "fail"
           test "$REPORT_FINDINGS" -gt 0
+          test "$THEMED_VERDICT" = "pass"

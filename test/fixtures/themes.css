@@ -1,0 +1,16 @@
+/* A light and a dark theme sharing one palette definition. */
+:root {
+  --blue: #2456A4;
+  --red: #B03A2E;
+  --chart-1: var(--blue);
+  --chart-2: var(--red);
+  --chart-bg: #ffffff;
+  --chart-label: #5b6470;
+}
+
+.dark {
+  --blue: #8ab4ff;
+  --red: #e0503c;
+  --chart-bg: #111318;
+  --chart-label: #aab2bd;
+}

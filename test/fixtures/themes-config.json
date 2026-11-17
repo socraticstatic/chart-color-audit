@@ -1,0 +1,10 @@
+{
+  "tokens": "themes.css",
+  "categorical": ["--chart-1", "--chart-2"],
+  "background": "--chart-bg",
+  "text": { "label": "--chart-label" },
+  "themes": {
+    "light": {},
+    "dark": { "selector": ".dark" }
+  }
+}
